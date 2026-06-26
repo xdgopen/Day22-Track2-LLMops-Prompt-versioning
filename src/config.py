@@ -13,9 +13,12 @@ _root = Path(__file__).parent.parent
 load_dotenv(_root / ".env")
 
 # ── LangSmith — PHẢI set trước khi import LangChain ──────────────────────
+_langsmith_api_key = os.getenv("LANGSMITH_API_KEY") or os.getenv("LANGCHAIN_API_KEY", "")
+_langsmith_project = os.getenv("LANGSMITH_PROJECT") or os.getenv("LANGCHAIN_PROJECT", "day22-lab")
+
 os.environ["LANGCHAIN_TRACING_V2"] = os.getenv("LANGCHAIN_TRACING_V2", "true")
-os.environ["LANGCHAIN_API_KEY"]    = os.getenv("LANGCHAIN_API_KEY", "")
-os.environ["LANGCHAIN_PROJECT"]    = os.getenv("LANGCHAIN_PROJECT", "day22-lab")
+os.environ["LANGCHAIN_API_KEY"]    = _langsmith_api_key
+os.environ["LANGCHAIN_PROJECT"]    = _langsmith_project
 os.environ["LANGCHAIN_ENDPOINT"]   = os.getenv("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
 
 # ── Provider mặc định ─────────────────────────────────────────────────────
@@ -27,6 +30,7 @@ OPENAI_API_KEY         = os.getenv("OPENAI_API_KEY", "")
 OPENAI_BASE_URL        = os.getenv("OPENAI_BASE_URL", "")   # để trống nếu dùng OpenAI chính thức
 OPENAI_MODEL           = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+DEFAULT_MAX_TOKENS     = int(os.getenv("MAX_TOKENS", "512"))
 
 # ── Google Gemini ─────────────────────────────────────────────────────────
 GOOGLE_API_KEY          = os.getenv("GOOGLE_API_KEY", "")
@@ -48,8 +52,20 @@ OPENROUTER_MODEL    = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # ── LangSmith ─────────────────────────────────────────────────────────────
-LANGSMITH_API_KEY = os.getenv("LANGCHAIN_API_KEY", "")
-LANGSMITH_PROJECT = os.getenv("LANGCHAIN_PROJECT", "day22-lab")
+LANGSMITH_API_KEY = _langsmith_api_key
+LANGSMITH_PROJECT = _langsmith_project
+
+
+def is_configured(value: str) -> bool:
+    """Return False for empty values and common placeholder strings."""
+    if not value:
+        return False
+    lowered = value.strip().lower()
+    return not (
+        lowered.startswith("your_")
+        or lowered.startswith("<")
+        or lowered in {"sk-...", "lsv2_...", "none", "null"}
+    )
 
 
 def validate() -> bool:
@@ -59,17 +75,18 @@ def validate() -> bool:
     """
     missing = []
 
-    if not LANGSMITH_API_KEY:
+    if not is_configured(LANGSMITH_API_KEY):
         missing.append("LANGCHAIN_API_KEY (LangSmith)")
 
-    if PROVIDER == "openai" and not OPENAI_API_KEY:
+    if PROVIDER == "openai" and not is_configured(OPENAI_API_KEY):
         missing.append("OPENAI_API_KEY")
-    elif PROVIDER == "gemini" and not GOOGLE_API_KEY:
+    elif PROVIDER == "gemini" and not is_configured(GOOGLE_API_KEY):
         missing.append("GOOGLE_API_KEY")
-    elif PROVIDER == "anthropic" and not ANTHROPIC_API_KEY:
+    elif PROVIDER == "anthropic" and not is_configured(ANTHROPIC_API_KEY):
         missing.append("ANTHROPIC_API_KEY")
-    elif PROVIDER == "openrouter" and not OPENROUTER_API_KEY:
-        missing.append("OPENROUTER_API_KEY")
+    elif PROVIDER == "openrouter":
+        if not is_configured(OPENROUTER_API_KEY):
+            missing.append("OPENROUTER_API_KEY")
     # Ollama: không cần API key
 
     if missing:
